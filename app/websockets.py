@@ -1,5 +1,12 @@
+import ast
+import json
+import pickle
 from typing import Dict, Optional, List
+
+from aioredis import create_redis_pool
 from starlette.websockets import WebSocket
+
+from app.settings import settings
 
 
 class WebsocketsChannelBase:
@@ -13,10 +20,16 @@ class WebsocketsChannelBase:
     async def connect(self, item_id: str, websocket: WebSocket):
         """ Accepts a websocket connection """
         await websocket.accept()
+        await self.redis_connect(item_id, websocket)  # todo
         try:
             self.active_connections[item_id].append(websocket)
         except KeyError:
             self.active_connections[item_id] = [websocket]
+
+    async def redis_connect(self, item_id: str, websocket: WebSocket):
+        pool = await create_redis_pool(settings.redis_url)
+        (ch,) = await pool.subscribe(str(item_id))
+        a = ch
 
     async def get_connections(self, item_id: str) -> Optional[List[WebSocket]]:
         """ Obtains a specific list of connections """
