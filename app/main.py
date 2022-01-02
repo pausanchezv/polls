@@ -1,3 +1,4 @@
+import asyncio
 import json
 from typing import List, Tuple, Dict
 
@@ -15,6 +16,7 @@ app = FastAPI()
 
 Message = Tuple[bytes, bytes, Dict[bytes, bytes]]
 
+# redis streams >> https://redis.io/topics/streams-intro // https://github.com/elementary-robotics/redisconf-2020-streams-fastapi/blob/master/src/main.py
 
 @app.get("/")
 async def root():
@@ -41,8 +43,7 @@ async def add_vote(request: VoteSchema):
     websockets = await channel.get_connections(str(request.user_id))
     await channel.send_message(f"Votes {request.user_id}: {int(num_votes)}", websockets)
 
-    redis = await aioredis.create_redis(settings.redis_url)
-    redis.xadd()
+    await pool.xadd("test", {"votes": f"Votes {request.user_id}: {int(num_votes)}"})
 
     pool.close()
     return request
