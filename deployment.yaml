@@ -38,7 +38,7 @@ metadata:
   labels:
     app: fastapi-polls-deployment
 spec:
-  replicas: 3
+  replicas: 5
   selector:
     matchLabels:
       app: fastapi-polls-deployment
@@ -61,6 +61,10 @@ metadata:
 spec:
   selector:
     app: fastapi-polls-deployment
+  sessionAffinity: ClientIP
+  sessionAffinityConfig:
+    clientIP:
+      timeoutSeconds: 1
   type: LoadBalancer
   ports:
     - protocol: TCP
