@@ -43,7 +43,8 @@ async def add_vote(request: VoteSchema):
     websockets = await channel.get_connections(str(request.user_id))
     await channel.send_message(f"Votes {request.user_id}: {int(num_votes)}", websockets)
 
-    await pool.xadd("test", {"votes": f"Votes {request.user_id}: {int(num_votes)}"})
+    addition = await pool.xadd("test", {"votes": f"Votes {request.user_id}: {int(num_votes)}"})
+    await pool.xdel("test", addition)
 
     pool.close()
     return request
@@ -105,9 +106,9 @@ async def proxy_stream(
             return
 
         # If we have no new messages, note that read timed out and return
-        if len(messages) == 0:
-            print(f"no new messages, read timed out for stream {stream}")
-            return
+        # if len(messages) == 0:
+        #     print(f"no new messages, read timed out for stream {stream}")
+        #     return
 
         # If we have max_frequency, assign only most recent message to messages
         if max_frequency is not None:
