@@ -40,8 +40,8 @@ async def add_vote(request: VoteSchema):
 
     print(f"{int(num_votes) + 1}")
 
-    websockets = await channel.get_connections(str(request.user_id))
-    await channel.send_message(f"Votes {request.user_id}: {int(num_votes)}", websockets)
+    # websockets = await channel.get_connections(str(request.user_id))
+    # await channel.send_message(f"Votes {request.user_id}: {int(num_votes)}", websockets)
 
     addition = await pool.xadd("test", {"votes": f"Votes {request.user_id}: {int(num_votes)}"})
     await pool.xdel("test", addition)
@@ -129,14 +129,14 @@ async def proxy_stream(
             return
 
 
-@app.websocket("/ws/stream-votes/{user_id}")
-async def websocket_endpoint(user_id: int, websocket: WebSocket):
-    await channel.connect(str(user_id), websocket)
-    websockets = await channel.get_connections(str(user_id))
-    try:
-        while True:
-            data = await websocket.receive_text()
-            data = json.loads(data)
-            await channel.send_message(data["message"], websockets)
-    except (ConnectionClosed, WebSocketDisconnect):
-        channel.disconnect(str(user_id), websocket)
+# @app.websocket("/ws/stream-votes/{user_id}")
+# async def websocket_endpoint(user_id: int, websocket: WebSocket):
+#     await channel.connect(str(user_id), websocket)
+#     websockets = await channel.get_connections(str(user_id))
+#     try:
+#         while True:
+#             data = await websocket.receive_text()
+#             data = json.loads(data)
+#             await channel.send_message(data["message"], websockets)
+#     except (ConnectionClosed, WebSocketDisconnect):
+#         channel.disconnect(str(user_id), websocket)

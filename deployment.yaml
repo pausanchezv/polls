@@ -38,7 +38,7 @@ metadata:
   labels:
     app: fastapi-polls-deployment
 spec:
-  replicas: 3
+  replicas: 5
   selector:
     matchLabels:
       app: fastapi-polls-deployment
@@ -49,7 +49,7 @@ spec:
     spec:
       containers:
       - name: fastapi-polls-deployment
-        image: pausanchezv/fastapi-polls:1.1
+        image: pausanchezv/fastapi-polls:1.2
         imagePullPolicy: Always
         ports:
         - containerPort: 80
