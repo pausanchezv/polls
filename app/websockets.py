@@ -1,61 +1,76 @@
 import ast
 import json
 import pickle
-from typing import Dict, Optional, List
+from typing import Dict, Optional, List, Tuple
 
+import aioredis
 from aioredis import create_redis_pool
-from starlette.websockets import WebSocket
+from starlette.websockets import WebSocket, WebSocketDisconnect
+from websockets.exceptions import ConnectionClosed
 
 from app.settings import settings
+
+Message = Tuple[bytes, bytes, Dict[bytes, bytes]]
 
 
 class WebsocketsChannelBase:
     """
     Websocket channels handler
     """
-    def __init__(self) -> None:
+    def __init__(self, redis, key: str, prefix: str) -> None:
         """ WebsocketsChannelsHandler Constructor """
-        self.active_connections: Optional[Dict[str, ...]] = None    # Defined by its subclass
+        self.redis = redis
+        self.key = key
+        self.prefix = prefix
 
-    async def connect(self, item_id: str, websocket: WebSocket):
+    async def connect(self, websocket: WebSocket):
         """ Accepts a websocket connection """
         await websocket.accept()
-        try:
-            self.active_connections[item_id].append(websocket)
-        except KeyError:
-            self.active_connections[item_id] = [websocket]
 
-    async def get_connections(self, item_id: str) -> Optional[List[WebSocket]]:
-        """ Obtains a specific list of connections """
-        try:
-            return self.active_connections[item_id]
-        except KeyError:
-            return None
+        latest_id = None
 
-    def disconnect(self, item_id: str, websocket: WebSocket) -> None:
-        """ Deletes a websocket connection """
-        if len(self.active_connections[item_id]) == 1:
-            del self.active_connections[item_id]
-        else:
-            self.active_connections[item_id].remove(websocket)
+        while True:
+            try:
+                messages: List[Message] = await self.read_from_stream(latest_id)
+            except Exception as e:
+                print(f"read timed out for stream {self.prefix}:{self.key}, {e}")
+                return
+
+            prepared_messages = []
+            for msg in messages:
+                latest_id = msg[1].decode("utf-8")
+                payload = {k.decode("utf-8"): v.decode("utf-8") for k, v in msg[2].items()}
+                prepared_messages.append({"message_id": latest_id, "payload": payload})
+
+            # Send messages to client, handling (ConnectionClosed, WebSocketDisconnect) in case client has disconnected
+            try:
+                for message in prepared_messages:
+                    await websocket.send_json(message)
+            except (ConnectionClosed, WebSocketDisconnect):
+                print(f"{websocket} disconnected from stream {self.prefix}:{self.key}")
+                return
+
+    async def read_from_stream(self, latest_id: str = None) -> List[Message]:
+        timeout_ms = 60 * 1000
+
+        if latest_id is not None:
+            return await self.redis.xread([f"{self.prefix}:{self.key}"], latest_ids=[latest_id], timeout=timeout_ms)
+
+        return await self.redis.xread([f"{self.prefix}:{self.key}"], timeout=timeout_ms)
 
     @staticmethod
-    async def send_message(message: str, websockets: Optional[List[WebSocket]]) -> None:
-        """ Sends a websocket message """
-        if websockets is not None:
-            for websocket in websockets:
-                await websocket.send_text(message)
+    async def push(channel_name, redis, num_votes):
+        message = await redis.xadd(f"{channel_name}", {"votes": f"Votes {channel_name}: {int(num_votes)}"})
+        await redis.xdel(f"{channel_name}", message)
 
 
 class TestChannel(WebsocketsChannelBase):
     """
     Websocket channels cluster-logs
     """
-    def __init__(self) -> None:
-        """ ClusterLogsChannel Constructor """
-        super().__init__()
-        self.active_connections: Dict[str, List[WebSocket]] = {}
 
+    def __init__(self, redis, key: str) -> None:
+        """ WebsocketsChannelsHandler Constructor """
+        super().__init__(redis, key, "channels:counter")
 
-channel = TestChannel()
 
