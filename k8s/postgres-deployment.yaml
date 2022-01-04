@@ -1,4 +1,13 @@
 apiVersion: v1
+kind: Secret
+metadata:
+  #namespace: useofenglish
+  name: postgres-secrets
+type: Opaque
+data:
+  POSTGRES_PASSWORD: UXdlcjEyMz8=
+---
+apiVersion: v1
 kind: ConfigMap
 metadata:
   name: postgres-config
@@ -7,7 +16,7 @@ metadata:
 data:
   POSTGRES_DB: k8s_exercise
   POSTGRES_USER: k8s_exercise
-  POSTGRES_PASSWORD: Qwer123?
+  # POSTGRES_PASSWORD: Qwer123?
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -31,6 +40,12 @@ spec:
           envFrom:
             - configMapRef:
                 name: postgres-config
+          env:
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-secrets
+                  key: POSTGRES_PASSWORD
           volumeMounts:
             - name: postgres-storage
               mountPath: /var/lib/postgresql/data
