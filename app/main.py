@@ -34,7 +34,6 @@ async def save_to_postgres(slug: str, db: Session) -> int:
         counter.count += 1
     finally:
         db.commit()
-
     return counter.count
 
 
@@ -42,19 +41,13 @@ async def save_to_postgres(slug: str, db: Session) -> int:
 async def add_vote(request: VoteSchema, db: Session = Depends(get_db)):
     pool = await create_redis_pool(settings.redis_url)
 
-    votenum = request.user_id[-1]
-
-    num_votes = await pool.get(f"{votenum}", encoding="utf8")
-
-    if not num_votes:
-        await pool.set(f"{votenum}", "1")
-        num_votes = 1
-    else:
-        await pool.set(f"{votenum}", f"{int(num_votes) + 1}")
-
-    print(f"{int(num_votes) + 1}")
-
     postgres_counter = await save_to_postgres(request.user_id, db)
+
+    await pool.set(f"{request.user_id}", f"{postgres_counter}")
+
+    print(f"{int(postgres_counter)}")
+
+    num_votes = await pool.get(f"{request.user_id}", encoding="utf8")
 
     await TestChannel.push(f"channels:counter:{request.user_id}", pool, num_votes)
 
