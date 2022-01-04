@@ -1,16 +1,17 @@
-import asyncio
-import json
-from typing import List, Tuple, Dict
-
 import aioredis
 from aioredis import create_redis_pool
-from fastapi import FastAPI
-from starlette.websockets import WebSocket, WebSocketDisconnect
-from websockets.exceptions import ConnectionClosed
+from fastapi import FastAPI, Depends
+from sqlalchemy.exc import NoResultFound
+from sqlalchemy.orm import Session
+from starlette.websockets import WebSocket
 
+from app.db.db import Base, engine, get_db
+from app.models import Counter
 from app.schemas import VoteSchema
 from app.settings import settings
 from app.websockets import TestChannel
+
+Base.metadata.create_all(engine)
 
 app = FastAPI()
 
@@ -23,11 +24,22 @@ async def root():
     return {"message": "Hello World"}
 
 
-@app.post("/add-vote", response_model=VoteSchema, status_code=200)
-async def add_vote(request: VoteSchema):
-    # print("---------------------")
-    # print(settings.redis_url)
-    # print("---------------------")
+async def save_to_postgres(slug: str, db: Session) -> int:
+    try:
+        counter = db.query(Counter).filter(Counter.slug == slug).one()
+    except NoResultFound:
+        counter = Counter(slug=slug, count=1)
+        db.add(counter)
+    else:
+        counter.count += 1
+    finally:
+        db.commit()
+
+    return counter.count
+
+
+@app.post("/add-vote", response_model=int, status_code=200)
+async def add_vote(request: VoteSchema, db: Session = Depends(get_db)):
     pool = await create_redis_pool(settings.redis_url)
 
     votenum = request.user_id[-1]
@@ -42,13 +54,12 @@ async def add_vote(request: VoteSchema):
 
     print(f"{int(num_votes) + 1}")
 
-    # websockets = await channel.get_connections(str(request.user_id))
-    # await channel.send_message(f"Votes {request.user_id}: {int(num_votes)}", websockets)
+    postgres_counter = await save_to_postgres(request.user_id, db)
 
     await TestChannel.push(f"channels:counter:{request.user_id}", pool, num_votes)
 
     pool.close()
-    return request
+    return postgres_counter
 
 
 @app.websocket("/ws/stream/{slug}")
