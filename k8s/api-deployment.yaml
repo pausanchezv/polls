@@ -26,9 +26,9 @@ metadata:
 spec:
   selector:
     app: fastapi-polls-deployment
-  type: LoadBalancer
+  type: ClusterIP # LoadBalancer
   ports:
     - protocol: TCP
       port: 80
       targetPort: 80
-      nodePort: 30010
+      #nodePort: 30010
