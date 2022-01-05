@@ -1,0 +1,13 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: lightmydream-com-tls
+spec:
+  secretName: lightmydream-com
+  issuerRef:
+    name: letsencrypt-prod
+    kind: ClusterIssuer
+  commonName: lightmydream.com
+  dnsNames:
+    - lightmydream.com
+    - www.lightmydream.com
