@@ -15,13 +15,17 @@ Base.metadata.create_all(engine)
 
 app = FastAPI()
 
-
-
 # redis streams >> https://redis.io/topics/streams-intro // https://github.com/elementary-robotics/redisconf-2020-streams-fastapi/blob/master/src/main.py
+
 
 @app.get("/")
 async def root():
     return {"message": "Hello World"}
+
+
+@app.get("/root2")
+async def root2():
+    return {"message": "Hello World 2"}
 
 
 async def save_to_postgres(slug: str, db: Session) -> int:
