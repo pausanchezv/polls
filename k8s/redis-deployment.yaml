@@ -17,6 +17,8 @@ spec:
           image: redis:6.2.6
           ports:
             - containerPort: 6379
+      nodeSelector:
+        app1: redis
 ---
 apiVersion: v1
 kind: Service
